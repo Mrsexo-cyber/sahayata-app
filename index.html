@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.json">
+<title>Customer Directory</title>
+<style>
+  :root{
+    --bg:#000000;--panel:#000000;--panel-2:#0a0a0a;--line:#3a3a3a;
+    --text:#ffffff;--muted:#b5b5b5;--accent:#ffffff;--accent-2:#ffffff;
+    --danger:#ff5c5c;--radius:14px;
+    font-family:'Segoe UI',Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);min-height:100vh;}
+  header{padding:22px 16px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .mark{font-family:Georgia,'Times New Roman',serif;font-size:26px;color:var(--accent);font-weight:700;letter-spacing:.5px;}
+  .brand .sub{font-size:12px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+  .searchwrap{margin-top:16px;display:flex;gap:10px;}
+  #searchInput{flex:1;padding:13px 16px;border-radius:var(--radius);border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:15px;outline:none;}
+  #searchInput:focus{border-color:var(--accent-2);}
+  .countTag{font-size:11px;color:var(--muted);margin-top:8px;letter-spacing:.5px;}
+  main{padding:16px;max-width:760px;margin:0 auto 100px;}
+  .empty{text-align:center;color:var(--muted);padding:60px 20px;font-size:14px;}
+  .card{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s,transform .1s;}
+  .card:hover{border-color:var(--accent-2);}
+  .card:active{transform:scale(.99);}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .card-name{font-size:17px;font-weight:600;}
+  .card-nick{font-size:12.5px;color:var(--accent);margin-top:2px;}
+  .card-phone{font-size:13px;color:var(--muted);white-space:nowrap;}
+  .card-short{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  .fab{position:fixed;right:18px;bottom:22px;width:58px;height:58px;border-radius:50%;background:var(--accent);color:#000;border:none;font-size:30px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;line-height:0;}
+  .fab:active{transform:scale(.94);}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:20;}
+  .overlay.show{display:flex;}
+  @media(min-width:600px){.overlay{align-items:center;}}
+  .sheet{background:var(--panel-2);width:100%;max-width:520px;border-radius:18px 18px 0 0;max-height:92vh;overflow-y:auto;border:1px solid var(--line);animation:up .18s ease-out;}
+  @media(min-width:600px){.sheet{border-radius:18px;margin-bottom:30px;}}
+  @keyframes up{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;padding:18px 20px 10px;}
+  .sheet-head h2{margin:0;font-size:18px;font-weight:600;}
+  .closeBtn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:4px 8px;}
+  .sheet-body{padding:6px 20px 24px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.4px;text-transform:uppercase;}
+  .field input,.field textarea{width:100%;padding:12px 13px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:15px;font-family:inherit;outline:none;}
+  .field input:focus,.field textarea:focus{border-color:var(--accent-2);}
+  .field textarea{resize:vertical;min-height:70px;}
+  .req{color:var(--danger);}
+  .actions{display:flex;gap:10px;margin-top:8px;}
+  .btn{flex:1;padding:13px;border-radius:10px;border:none;font-size:15px;font-weight:600;cursor:pointer;}
+  .btn-save{background:var(--accent);color:#000;}
+  .btn-save:active{opacity:.85;}
+  .btn-cancel{background:transparent;border:1px solid var(--line);color:var(--muted);}
+  .detail-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-row .k{width:120px;flex-shrink:0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding-top:2px;}
+  .detail-row .v{font-size:14.5px;line-height:1.5;white-space:pre-wrap;}
+  .delBtn{margin-top:18px;width:100%;padding:12px;border-radius:10px;background:transparent;border:1px solid var(--danger);color:var(--danger);font-size:14px;font-weight:600;cursor:pointer;}
+  .group-header{
+    font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--muted);padding:18px 4px 6px;border-bottom:1px solid var(--line);
+    margin-bottom:8px;
+  }
+  .group-header:first-child{padding-top:4px;}
+  .loc-badge{
+    display:inline-block;font-size:10px;letter-spacing:.6px;text-transform:uppercase;
+    background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:5px;padding:2px 7px;margin-top:5px;
+  }
+  /* location select styling */
+  .field select{
+    width:100%;padding:12px 13px;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel);
+    color:var(--text);font-size:15px;font-family:inherit;outline:none;
+    appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23b5b5b5' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;
+  }
+  .field select:focus{border-color:var(--accent-2);}
+  .field select option{background:#1a1a1a;color:var(--text);}
+  .fb-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);}
+  .fb-dot{width:7px;height:7px;border-radius:50%;background:#888;display:inline-block;transition:background .3s;}
+  .fb-dot.ok{background:#4caf50;}
+  .fb-dot.err{background:var(--danger);}
+  .fb-dot.loading{background:#f0a500;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* Splash Screen */
+  #splash{
+    position:fixed;inset:0;background:#000;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    z-index:999;transition:opacity .5s ease;
+  }
+  #splash.hide{opacity:0;pointer-events:none;}
+  .splash-title{
+    font-family:Georgia,'Times New Roman',serif;
+    font-size:36px;font-weight:700;color:#fff;letter-spacing:1px;
+    margin-bottom:6px;
+  }
+  .splash-sub{
+    font-size:12px;color:#666;letter-spacing:2px;text-transform:uppercase;
+    margin-bottom:48px;
+  }
+  .splash-loader{
+    width:36px;height:36px;border:2px solid #222;
+    border-top-color:#fff;border-radius:50%;
+    animation:spin .8s linear infinite;
+    margin-bottom:48px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .splash-dev{
+    font-size:11px;color:#444;letter-spacing:.5px;
+  }
+  .splash-dev span{color:#666;}
+</style>
+</head>
+<body>
+
+<!-- Splash Screen -->
+<div id="splash">
+  <div class="splash-title">Sahayata</div>
+  <div class="splash-sub">Customer Directory</div>
+  <div class="splash-loader"></div>
+  <div class="splash-dev">Developed by <span>Sandeep Khetri</span></div>
+</div>
+
+<header>
+  <div class="brand">
+    <span class="mark">Sahayata</span>
+    <span class="sub">Customer Directory</span>
+    <button id="btnOpenSetup" style="margin-left:auto;background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;">Firebase</button>
+  </div>
+  <div class="searchwrap">
+    <input id="searchInput" type="text" placeholder="Search by name, nickname or phone...">
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+    <div class="countTag" id="countTag"></div>
+    <div class="fb-status"><span class="fb-dot" id="fbDot"></span><span id="fbStatusText">Not connected</span></div>
+  </div>
+</header>
+
+<main><div id="list"></div></main>
+
+<button class="fab" id="btnFab">+</button>
+
+<!-- Add/Edit Form -->
+<div class="overlay" id="formOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="formTitle">Add Customer</h2>
+      <button class="closeBtn" id="btnCloseForm">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <input type="hidden" id="editId">
+      <div class="field"><label>Name <span class="req">*</span></label><input id="f_name" type="text" placeholder="Full name"></div>
+      <div class="field"><label>Nicknames</label><input id="f_nick" type="text" placeholder="e.g. Babu, Mantu (comma separated)"></div>
+      <div class="field"><label>Phone Number</label><input id="f_phone" type="tel" placeholder="10-digit phone number"></div>
+      <div class="field">
+        <label>Location <span class="req">*</span></label>
+        <select id="f_location">
+          <option value="">-- Select Location --</option>
+          <option value="Karadei">Karadei</option>
+          <option value="Gadasila">Gadasila</option>
+          <option value="Rangabeda">Rangabeda</option>
+          <option value="Sagadipal">Sagadipal</option>
+          <option value="A-Type">A-Type</option>
+          <option value="Bhimkanda">Bhimkanda</option>
+          <option value="TTS Colony">TTS Colony</option>
+          <option value="PTS Colony">PTS Colony</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Address / Ghar no.</label><textarea id="f_address" placeholder="Ghar no., street, landmark..."></textarea></div>
+      <div class="field"><label>Receiving Address</label><textarea id="f_receiving" placeholder="Address for delivery / receiving items"></textarea></div>
+      <div class="field"><label>Short Details</label><textarea id="f_details" placeholder="Any other notes about this customer"></textarea></div>
+      <div class="actions">
+        <button class="btn btn-cancel" id="btnCancelForm">Cancel</button>
+        <button class="btn btn-save" id="btnSaveForm">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail View -->
+<div class="overlay" id="detailOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="detailName">Customer</h2>
+      <button class="closeBtn" id="btnCloseDetail">&times;</button>
+    </div>
+    <div class="sheet-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Firebase Setup -->
+<div class="overlay" id="setupOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Firebase Setup</h2>
+      <button class="closeBtn" id="btnCloseSetup">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:0;">
+        Apna Firebase project ka config paste karo. Data Firestore mein securely store hoga — kisi bhi device se access kar sakte ho.
+      </p>
+      <div class="field"><label>API Key</label><input id="fb_apiKey" type="text" placeholder="AIza..."></div>
+      <div class="field"><label>Auth Domain</label><input id="fb_authDomain" type="text" placeholder="your-app.firebaseapp.com"></div>
+      <div class="field"><label>Project ID</label><input id="fb_projectId" type="text" placeholder="your-project-id"></div>
+      <div class="field"><label>App ID</label><input id="fb_appId" type="text" placeholder="1:123456:web:abc..."></div>
+      <div class="actions">
+        <button class="btn btn-cancel" id="btnCancelSetup">Cancel</button>
+        <button class="btn btn-save" id="btnSaveSetup">Connect</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:18px;">
+        <strong style="color:var(--text)">Firebase setup kaise kare (ek baar):</strong><br>
+        1. <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">console.firebase.google.com</a> pe jao, new project banao.<br>
+        2. Project settings — "Your apps" — Web app add karo (&lt;/&gt;).<br>
+        3. Firebase SDK config wala section mein apiKey, authDomain, projectId, appId milega — wahi yahan paste karo.<br>
+        4. Firestore Database — Create database — Start in test mode (ya production rules set karo).<br>
+        5. Bas ho gaya, data automatically sync hoga!
+      </p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp, getApps, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, setDoc, deleteDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const FB_CONFIG_KEY = 'sahayata_fb_config';
+let db = null;
+let unsubscribe = null;
+let customers = [];
+let activeDetailId = null;
+
+function $(id){ return document.getElementById(id); }
+function show(id){ $(id).classList.add('show'); }
+function hide(id){ $(id).classList.remove('show'); }
+function strVal(id){ return ($(id).value || '').trim(); }
+
+function escapeHtml(str){
+  return (str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function setStatus(state, text){
+  $('fbDot').className = 'fb-dot ' + state;
+  $('fbStatusText').textContent = text;
+}
+
+async function initFirebase(cfg){
+  try{
+    // If app already exists (e.g. after reload or reconnect), delete it first
+    const apps = getApps();
+    const existing = apps.find(a => a.name === 'sahayata');
+    if(existing) await deleteApp(existing);
+
+    const app = initializeApp(cfg, 'sahayata');
+    // persistentLocalCache = offline data survives refresh
+    try{
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+      });
+    }catch(e){
+      // fallback if multi-tab not supported
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache()
+      });
+    }
+
+    setStatus('loading', 'Connecting...');
+    startListener();
+  }catch(e){
+    console.error('Firebase init error:', e);
+    db = null;
+    setStatus('err', 'Config galat hai');
+    show('setupOverlay');
+  }
+}
+
+function startListener(){
+  if(unsubscribe){ unsubscribe(); unsubscribe = null; }
+  if(!db){ setStatus('err', 'DB not ready'); return; }
+  unsubscribe = onSnapshot(
+    collection(db, 'customers'),
+    snap => {
+      customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setStatus('ok', 'Firebase connected');
+      // Always pass current search box value so filter is preserved on live updates
+      const currentSearch = $('searchInput') ? $('searchInput').value : '';
+      render(currentSearch);
+    },
+    err => {
+      console.error('Snapshot error:', err);
+      setStatus('err', 'Sync error: ' + (err.code || err.message));
+    }
+  );
+}
+
+async function saveToFirestore(data){
+  if(!db) throw new Error('Firebase connected nahi hai');
+  await setDoc(doc(db, 'customers', data.id), data);
+}
+
+async function deleteFromFirestore(id){
+  if(!db) throw new Error('Firebase connected nahi hai');
+  await deleteDoc(doc(db, 'customers', id));
+}
+
+function boot(){
+  const raw = localStorage.getItem(FB_CONFIG_KEY);
+  if(!raw){ setStatus('', 'Not connected'); show('setupOverlay'); return; }
+  try{
+    const cfg = JSON.parse(raw);
+    if(!cfg || !cfg.apiKey || !cfg.projectId) throw new Error('Incomplete');
+    initFirebase(cfg);
+  }catch(e){
+    console.error('Boot error:', e);
+    setStatus('err', 'Bad config');
+    show('setupOverlay');
+  }
+}
+
+const LOCATION_ORDER = [
+  'Karadei','Gadasila','Rangabeda','Sagadipal',
+  'A-Type','Bhimkanda','TTS Colony','PTS Colony','Other'
+];
+
+function getLocIndex(loc){
+  const i = LOCATION_ORDER.indexOf(loc);
+  return i === -1 ? LOCATION_ORDER.length : i;
+}
+
+function render(filter){
+  filter = filter || '';
+  const f = filter.trim().toLowerCase();
+  const filtered = customers
+    .filter(c => !f ||
+      (c.name||'').toLowerCase().includes(f) ||
+      (c.nick||'').toLowerCase().includes(f) ||
+      (c.phone||'').toLowerCase().includes(f) ||
+      (c.location||'').toLowerCase().includes(f))
+    .sort((a,b) => {
+      const li = getLocIndex(a.location) - getLocIndex(b.location);
+      if(li !== 0) return li;
+      return (a.name||'').localeCompare(b.name);
+    });
+
+  $('countTag').textContent = customers.length + ' customer' + (customers.length === 1 ? '' : 's') + ' saved';
+
+  if(filtered.length === 0){
+    $('list').innerHTML = customers.length === 0 ? '' : '<div class="empty">Koi match nahi mila.</div>';
+    return;
+  }
+
+  let html = '';
+  let lastLoc = null;
+  filtered.forEach(c => {
+    const loc = c.location || 'Other';
+    if(loc !== lastLoc){
+      html += '<div class="group-header">' + escapeHtml(loc) + '</div>';
+      lastLoc = loc;
+    }
+    html +=
+      '<div class="card" data-id="' + c.id + '">' +
+      '<div class="card-top"><div>' +
+      '<div class="card-name">' + escapeHtml(c.name) + '</div>' +
+      (c.nick ? '<div class="card-nick">"' + escapeHtml(c.nick) + '"</div>' : '') +
+      '</div>' +
+      (c.phone ? '<div class="card-phone">' + escapeHtml(c.phone) + '</div>' : '') +
+      '</div>' +
+      (c.address ? '<div class="card-short">' + escapeHtml(c.address) + '</div>' : '') +
+      '</div>';
+  });
+  $('list').innerHTML = html;
+}
+
+function openForm(editing){
+  $('formTitle').textContent = editing ? 'Edit Customer' : 'Add Customer';
+  $('editId').value      = editing ? (editing.id       || '') : '';
+  $('f_name').value      = editing ? (editing.name     || '') : '';
+  $('f_nick').value      = editing ? (editing.nick     || '') : '';
+  $('f_phone').value     = editing ? (editing.phone    || '') : '';
+  const locSel = $('f_location');
+  const locVal = editing ? (editing.location || '') : '';
+  for(let i=0;i<locSel.options.length;i++){ if(locSel.options[i].value===locVal){ locSel.selectedIndex=i; break; } }
+  if(!locVal) locSel.selectedIndex = 0;
+  $('f_address').value   = editing ? (editing.address  || '') : '';
+  $('f_receiving').value = editing ? (editing.receiving|| '') : '';
+  $('f_details').value   = editing ? (editing.details  || '') : '';
+  show('formOverlay');
+}
+
+function closeForm(){ hide('formOverlay'); }
+
+async function saveCustomer(){
+  if(!db){ alert('Firebase connected nahi hai. Pehle Firebase setup karo.'); return; }
+  const name = $('f_name').value.trim();
+  if(!name){ alert('Name zaroori hai.'); $('f_name').focus(); return; }
+  const location = $('f_location').value;
+  if(!location){ alert('Location select karo.'); $('f_location').focus(); return; }
+  const saveBtn = $('btnSaveForm');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+  const id = ($('editId').value || '').trim() || (Date.now().toString(36) + Math.random().toString(36).slice(2,7));
+  const data = {
+    id,
+    name,
+    nick:      $('f_nick').value.trim(),
+    phone:     $('f_phone').value.trim(),
+    location:  $('f_location').value,
+    address:   $('f_address').value.trim(),
+    receiving: $('f_receiving').value.trim(),
+    details:   $('f_details').value.trim(),
+    updatedAt: Date.now()
+  };
+  try{
+    await saveToFirestore(data);
+    closeForm();
+  }catch(e){
+    console.error('Save error:', e);
+    alert('Save nahi hua: ' + (e.message || e.code || 'Unknown error'));
+  }finally{
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  }
+}
+
+function detRow(k,v){
+  return '<div class="detail-row"><div class="k">' + k + '</div><div class="v">' + (escapeHtml(v)||'&mdash;') + '</div></div>';
+}
+
+function openDetail(id){
+  const c = customers.find(x => x.id === id);
+  if(!c) return;
+  activeDetailId = id;
+  $('detailName').textContent = c.name;
+  $('detailBody').innerHTML =
+    detRow('Name', c.name) +
+    detRow('Nicknames', c.nick) +
+    detRow('Phone', c.phone) +
+    detRow('Location', c.location) +
+    detRow('Address', c.address) +
+    detRow('Receiving Address', c.receiving) +
+    detRow('Short Details', c.details) +
+    '<div class="actions" style="margin-top:18px;">' +
+    '<button class="btn btn-cancel" data-action="close-detail">Close</button>' +
+    '<button class="btn btn-save" data-action="edit-detail" data-id="' + c.id + '">Edit</button>' +
+    '</div>' +
+    '<button class="delBtn" data-action="delete-detail" data-id="' + c.id + '">Delete Customer</button>';
+  show('detailOverlay');
+}
+
+function closeDetail(){ hide('detailOverlay'); activeDetailId = null; }
+
+async function deleteCustomer(id){
+  if(!confirm('Is customer ko permanently delete kare?')) return;
+  try{ await deleteFromFirestore(id); closeDetail(); }
+  catch(e){ alert('Delete nahi hua: ' + e.message); }
+}
+
+async function saveFirebaseConfig(){
+  const cfg = {
+    apiKey:     $('fb_apiKey').value.trim(),
+    authDomain: $('fb_authDomain').value.trim(),
+    projectId:  $('fb_projectId').value.trim(),
+    appId:      $('fb_appId').value.trim(),
+  };
+  if(!cfg.apiKey || !cfg.projectId){ alert('API Key aur Project ID zaroori hai.'); return; }
+  const btn = $('btnSaveSetup');
+  btn.disabled = true;
+  btn.textContent = 'Connecting...';
+  localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(cfg));
+  hide('setupOverlay');
+  await initFirebase(cfg);
+  btn.disabled = false;
+  btn.textContent = 'Connect';
+}
+
+// ── All event listeners — no inline onclick anywhere ──
+$('btnFab').addEventListener('click', () => openForm(null));
+$('btnCloseForm').addEventListener('click', closeForm);
+$('btnCancelForm').addEventListener('click', closeForm);
+$('btnSaveForm').addEventListener('click', saveCustomer);
+
+$('btnCloseDetail').addEventListener('click', closeDetail);
+
+$('btnOpenSetup').addEventListener('click', () => show('setupOverlay'));
+$('btnCloseSetup').addEventListener('click', () => hide('setupOverlay'));
+$('btnCancelSetup').addEventListener('click', () => hide('setupOverlay'));
+$('btnSaveSetup').addEventListener('click', saveFirebaseConfig);
+
+['input','change','compositionend'].forEach(function(ev){
+  $('searchInput').addEventListener(ev, function(){ render(this.value); });
+});
+
+// Delegation for card clicks + dynamic detail buttons
+document.addEventListener('click', function(e){
+  const card = e.target.closest('.card[data-id]');
+  if(card){ openDetail(card.dataset.id); return; }
+
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  if(btn.dataset.action === 'close-detail') closeDetail();
+  else if(btn.dataset.action === 'edit-detail'){
+    const c = customers.find(x => x.id === btn.dataset.id);
+    closeDetail();
+    if(c) openForm(c);
+  }
+  else if(btn.dataset.action === 'delete-detail') deleteCustomer(btn.dataset.id);
+});
+
+// Pre-fill setup form
+(function(){
+  const raw = localStorage.getItem(FB_CONFIG_KEY);
+  if(!raw) return;
+  try{
+    const cfg = JSON.parse(raw);
+    $('fb_apiKey').value     = cfg.apiKey     || '';
+    $('fb_authDomain').value = cfg.authDomain || '';
+    $('fb_projectId').value  = cfg.projectId  || '';
+    $('fb_appId').value      = cfg.appId      || '';
+  }catch(e){}
+})();
+
+boot();
+
+// Hide splash after Firebase connects or after 2.5s max
+(function(){
+  const splash = document.getElementById('splash');
+  let hidden = false;
+  function hideSplash(){
+    if(hidden) return;
+    hidden = true;
+    splash.classList.add('hide');
+    setTimeout(function(){ splash.style.display='none'; }, 520);
+  }
+  // Watch for Firebase status dot turning green
+  const observer = new MutationObserver(function(){
+    if(document.getElementById('fbDot').classList.contains('ok')) hideSplash();
+  });
+  observer.observe(document.getElementById('fbDot'), { attributes:true, attributeFilter:['class'] });
+  // Fallback — hide after 2.5s regardless
+  setTimeout(hideSplash, 2500);
+})();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
