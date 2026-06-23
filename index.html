@@ -195,7 +195,7 @@
           <option value="Other">Other</option>
         </select>
       </div>
-      <div class="field"><label>Sub Location <span style="text-transform:none;font-size:11px;">(galli/area, location ke andar)</span></label><input id="f_sublocation" type="text" placeholder="e.g. Lane 3, Near temple"></div>
+      <div class="field"><label>Sub Location <span style="text-transform:none;font-size:11px;">(lane/area inside the location)</span></label><input id="f_sublocation" type="text" placeholder="e.g. Lane 3, Near temple"></div>
       <div class="field"><label>Receiving Address</label><textarea id="f_receiving" placeholder="Address for delivery / receiving items"></textarea></div>
       <div class="field"><label>Short Details</label><textarea id="f_details" placeholder="Any other notes about this customer"></textarea></div>
       <div class="field">
@@ -234,7 +234,7 @@
     </div>
     <div class="sheet-body">
       <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:0;">
-        Apna Firebase project ka config paste karo. Data Firestore mein securely store hoga — kisi bhi device se access kar sakte ho.
+        Paste your Firebase project config below. Data will be securely stored in Firestore and accessible from any device.
       </p>
       <div class="field"><label>API Key</label><input id="fb_apiKey" type="text" placeholder="AIza..."></div>
       <div class="field"><label>Auth Domain</label><input id="fb_authDomain" type="text" placeholder="your-app.firebaseapp.com"></div>
@@ -245,12 +245,12 @@
         <button class="btn btn-save" id="btnSaveSetup">Connect</button>
       </div>
       <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:18px;">
-        <strong style="color:var(--text)">Firebase setup kaise kare (ek baar):</strong><br>
-        1. <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">console.firebase.google.com</a> pe jao, new project banao.<br>
-        2. Project settings — "Your apps" — Web app add karo (&lt;/&gt;).<br>
-        3. Firebase SDK config wala section mein apiKey, authDomain, projectId, appId milega — wahi yahan paste karo.<br>
-        4. Firestore Database — Create database — Start in test mode (ya production rules set karo).<br>
-        5. Bas ho gaya, data automatically sync hoga!
+        <strong style="color:var(--text)">How to set up Firebase (one time only):</strong><br>
+        1. Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent)">console.firebase.google.com</a> and create a new project.<br>
+        2. Project settings — "Your apps" — Add a Web app (&lt;/&gt;).<br>
+        3. Copy the apiKey, authDomain, projectId, appId from the Firebase SDK config section and paste them here.<br>
+        4. Firestore Database — Create database — Start in test mode (or set production rules).<br>
+        5. Done! Data will sync automatically across all devices.
       </p>
     </div>
   </div>
@@ -305,14 +305,14 @@ async function initFirebase(cfg){
   }catch(e){
     console.error('Firebase init error:', e);
     db = null;
-    setStatus('err', 'Config galat hai');
+    setStatus('err', 'Invalid config');
     show('setupOverlay');
   }
 }
 
 function startListener(){
   if(unsubscribe){ unsubscribe(); unsubscribe = null; }
-  if(!db){ setStatus('err', 'DB not ready'); return; }
+  if(!db){ setStatus('err', 'Database not ready'); return; }
   unsubscribe = onSnapshot(
     collection(db, 'customers'),
     snap => {
@@ -330,25 +330,25 @@ function startListener(){
 }
 
 async function saveToFirestore(data){
-  if(!db) throw new Error('Firebase connected nahi hai');
+  if(!db) throw new Error('Firebase is not connected');
   await setDoc(doc(db, 'customers', data.id), data);
 }
 
 async function deleteFromFirestore(id){
-  if(!db) throw new Error('Firebase connected nahi hai');
+  if(!db) throw new Error('Firebase is not connected');
   await deleteDoc(doc(db, 'customers', id));
 }
 
 function boot(){
   const raw = localStorage.getItem(FB_CONFIG_KEY);
-  if(!raw){ setStatus('', 'Not connected'); show('setupOverlay'); return; }
+  if(!raw){ setStatus('', 'Not connected — tap Firebase to set up'); show('setupOverlay'); return; }
   try{
     const cfg = JSON.parse(raw);
     if(!cfg || !cfg.apiKey || !cfg.projectId) throw new Error('Incomplete');
     initFirebase(cfg);
   }catch(e){
     console.error('Boot error:', e);
-    setStatus('err', 'Bad config');
+    setStatus('err', 'Invalid config — please reconfigure');
     show('setupOverlay');
   }
 }
@@ -386,7 +386,7 @@ function render(filter){
   $('countTag').textContent = customers.length + ' customer' + (customers.length === 1 ? '' : 's') + ' saved';
 
   if(filtered.length === 0){
-    $('list').innerHTML = customers.length === 0 ? '' : '<div class="empty">Koi match nahi mila.</div>';
+    $('list').innerHTML = customers.length === 0 ? '' : '<div class="empty">No results found.</div>';
     return;
   }
 
@@ -446,11 +446,11 @@ function openForm(editing){
 function closeForm(){ hide('formOverlay'); }
 
 async function saveCustomer(){
-  if(!db){ alert('Firebase connected nahi hai. Pehle Firebase setup karo.'); return; }
+  if(!db){ alert('Firebase is not connected. Please set up Firebase first.'); return; }
   const name = $('f_name').value.trim();
-  if(!name){ alert('Name zaroori hai.'); $('f_name').focus(); return; }
+  if(!name){ alert('Name is required.'); $('f_name').focus(); return; }
   const location = $('f_location').value;
-  if(!location){ alert('Location select karo.'); $('f_location').focus(); return; }
+  if(!location){ alert('Please select a location.'); $('f_location').focus(); return; }
   const saveBtn = $('btnSaveForm');
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
@@ -472,7 +472,7 @@ async function saveCustomer(){
     closeForm();
   }catch(e){
     console.error('Save error:', e);
-    alert('Save nahi hua: ' + (e.message || e.code || 'Unknown error'));
+    alert('Save failed: ' + (e.message || e.code || 'Unknown error'));
   }finally{
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save';
@@ -557,9 +557,9 @@ function openDetail(id){
 function closeDetail(){ hide('detailOverlay'); activeDetailId = null; }
 
 async function deleteCustomer(id){
-  if(!confirm('Is customer ko permanently delete kare?')) return;
+  if(!confirm('Permanently delete this customer?')) return;
   try{ await deleteFromFirestore(id); closeDetail(); }
-  catch(e){ alert('Delete nahi hua: ' + e.message); }
+  catch(e){ alert('Delete failed: ' + e.message); }
 }
 
 async function saveFirebaseConfig(){
@@ -569,7 +569,7 @@ async function saveFirebaseConfig(){
     projectId:  $('fb_projectId').value.trim(),
     appId:      $('fb_appId').value.trim(),
   };
-  if(!cfg.apiKey || !cfg.projectId){ alert('API Key aur Project ID zaroori hai.'); return; }
+  if(!cfg.apiKey || !cfg.projectId){ alert('API Key and Project ID are required.'); return; }
   const btn = $('btnSaveSetup');
   btn.disabled = true;
   btn.textContent = 'Connecting...';
@@ -585,38 +585,86 @@ $('btnIAmHere').addEventListener('click', function(){
   const statusEl = $('gpsStatus');
   const gpsInput = $('f_gps');
   const btn = this;
+
   if(!navigator.geolocation){
     statusEl.textContent = 'GPS not supported on this device.';
     statusEl.style.color = 'var(--danger)';
     return;
   }
+
   btn.disabled = true;
   btn.textContent = 'Locating...';
-  statusEl.textContent = 'Getting your location...';
+  statusEl.textContent = 'Acquiring GPS signal — please stay still...';
   statusEl.style.color = 'var(--muted)';
-  navigator.geolocation.getCurrentPosition(
-    function(pos){
-      const lat = pos.coords.latitude.toFixed(7);
-      const lng = pos.coords.longitude.toFixed(7);
-      gpsInput.value = lat + ', ' + lng;
-      statusEl.textContent = 'Location captured (accuracy: ±' + Math.round(pos.coords.accuracy) + 'm)';
-      statusEl.style.color = '#4caf50';
-      btn.disabled = false;
-      btn.textContent = 'I AM HERE';
-    },
-    function(err){
-      const msgs = {
-        1: 'Location permission denied. Please allow location access.',
-        2: 'Location unavailable. Try again.',
-        3: 'Location request timed out. Try again.'
-      };
-      statusEl.textContent = msgs[err.code] || 'Failed to get location.';
+
+  let bestPosition = null;
+  let watchId = null;
+  let settled = false;
+
+  // How long to keep watching for a better fix (ms)
+  const WATCH_DURATION = 8000;
+  // Stop early if accuracy is this good (metres)
+  const GOOD_ENOUGH_ACCURACY = 10;
+
+  function finish(){
+    if(settled) return;
+    settled = true;
+    if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+
+    if(!bestPosition){
+      statusEl.textContent = 'Could not get location. Make sure GPS is enabled and try again.';
       statusEl.style.color = 'var(--danger)';
       btn.disabled = false;
       btn.textContent = 'I AM HERE';
+      return;
+    }
+
+    const lat = bestPosition.coords.latitude.toFixed(8);
+    const lng = bestPosition.coords.longitude.toFixed(8);
+    const acc = Math.round(bestPosition.coords.accuracy);
+    gpsInput.value = lat + ', ' + lng;
+    statusEl.textContent = 'Location captured — accuracy ±' + acc + ' m';
+    statusEl.style.color = '#4caf50';
+    btn.disabled = false;
+    btn.textContent = 'I AM HERE';
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    function(pos){
+      // Keep the fix with best (lowest) accuracy reading
+      if(!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy){
+        bestPosition = pos;
+        const acc = Math.round(pos.coords.accuracy);
+        statusEl.textContent = 'Signal found — accuracy ±' + acc + ' m, improving...';
+        statusEl.style.color = 'var(--muted)';
+        // If already accurate enough, stop early
+        if(acc <= GOOD_ENOUGH_ACCURACY){ finish(); }
+      }
     },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    function(err){
+      const msgs = {
+        1: 'Location permission denied. Please allow location access in your browser settings.',
+        2: 'GPS signal unavailable. Move to an open area and try again.',
+        3: 'GPS timed out. Move to an open area and try again.'
+      };
+      if(!settled){
+        // If we already have a position, use it; otherwise show error
+        if(bestPosition){ finish(); }
+        else{
+          settled = true;
+          if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+          statusEl.textContent = msgs[err.code] || 'Failed to get location.';
+          statusEl.style.color = 'var(--danger)';
+          btn.disabled = false;
+          btn.textContent = 'I AM HERE';
+        }
+      }
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
   );
+
+  // After WATCH_DURATION, lock in the best position we have
+  setTimeout(finish, WATCH_DURATION);
 });
 
 $('btnFab').addEventListener('click', () => openForm(null));
