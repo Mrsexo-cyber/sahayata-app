@@ -34,7 +34,23 @@
   .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
   .card-name{font-size:17px;font-weight:600;}
   .card-nick{font-size:12.5px;color:var(--accent);margin-top:2px;}
-  .card-phone{font-size:13px;color:var(--muted);white-space:nowrap;}
+  .card-phone{font-size:13px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:6px;}
+  .copyBtn{
+    background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:6px;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+    cursor:pointer;flex-shrink:0;padding:0;
+  }
+  .copyBtn:active{transform:scale(.9);}
+  .copyBtn svg{width:13px;height:13px;}
+  .copyBtn.copied{border-color:#4caf50;color:#4caf50;}
+  .detail-row .v.phoneVal{display:flex;align-items:center;gap:8px;}
+  #toast{
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#1a1a1a;border:1px solid var(--line);color:var(--text);
+    padding:9px 18px;border-radius:30px;font-size:13px;z-index:50;
+    opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .card-short{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.4;}
   .fab{position:fixed;right:18px;bottom:22px;width:58px;height:58px;border-radius:50%;background:var(--accent);color:#000;border:none;font-size:30px;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;line-height:0;}
   .fab:active{transform:scale(.94);}
@@ -150,6 +166,7 @@
 <main><div id="list"></div></main>
 
 <button class="fab" id="btnFab">+</button>
+<div id="toast"></div>
 
 <!-- Add/Edit Form -->
 <div class="overlay" id="formOverlay">
@@ -178,7 +195,7 @@
           <option value="Other">Other</option>
         </select>
       </div>
-      <div class="field"><label>Address / Ghar no.</label><textarea id="f_address" placeholder="Ghar no., street, landmark..."></textarea></div>
+      <div class="field"><label>Sub Location <span style="text-transform:none;font-size:11px;">(galli/area, location ke andar)</span></label><input id="f_sublocation" type="text" placeholder="e.g. Lane 3, Near temple"></div>
       <div class="field"><label>Receiving Address</label><textarea id="f_receiving" placeholder="Address for delivery / receiving items"></textarea></div>
       <div class="field"><label>Short Details</label><textarea id="f_details" placeholder="Any other notes about this customer"></textarea></div>
       <div class="actions">
@@ -346,10 +363,15 @@ function render(filter){
       (c.name||'').toLowerCase().includes(f) ||
       (c.nick||'').toLowerCase().includes(f) ||
       (c.phone||'').toLowerCase().includes(f) ||
-      (c.location||'').toLowerCase().includes(f))
+      (c.location||'').toLowerCase().includes(f) ||
+      (c.sublocation||'').toLowerCase().includes(f))
     .sort((a,b) => {
       const li = getLocIndex(a.location) - getLocIndex(b.location);
       if(li !== 0) return li;
+      const sa = (a.sublocation||'').toLowerCase();
+      const sb = (b.sublocation||'').toLowerCase();
+      const si = sa.localeCompare(sb);
+      if(si !== 0) return si;
       return (a.name||'').localeCompare(b.name);
     });
 
@@ -362,11 +384,20 @@ function render(filter){
 
   let html = '';
   let lastLoc = null;
+  let lastSub = null;
   filtered.forEach(c => {
     const loc = c.location || 'Other';
+    const sub = c.sublocation || '';
     if(loc !== lastLoc){
       html += '<div class="group-header">' + escapeHtml(loc) + '</div>';
       lastLoc = loc;
+      lastSub = null;
+    }
+    if(sub !== lastSub){
+      if(sub){
+        html += '<div class="group-header" style="font-size:10px;padding-top:10px;border-bottom:none;margin-bottom:4px;opacity:.75;">' + escapeHtml(sub) + '</div>';
+      }
+      lastSub = sub;
     }
     html +=
       '<div class="card" data-id="' + c.id + '">' +
@@ -374,9 +405,13 @@ function render(filter){
       '<div class="card-name">' + escapeHtml(c.name) + '</div>' +
       (c.nick ? '<div class="card-nick">"' + escapeHtml(c.nick) + '"</div>' : '') +
       '</div>' +
-      (c.phone ? '<div class="card-phone">' + escapeHtml(c.phone) + '</div>' : '') +
+      (c.phone ?
+        '<div class="card-phone">' + escapeHtml(c.phone) +
+        '<button class="copyBtn" data-action="copy-phone" data-phone="' + escapeHtml(c.phone) + '" title="Copy number">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
+        '</button></div>'
+       : '') +
       '</div>' +
-      (c.address ? '<div class="card-short">' + escapeHtml(c.address) + '</div>' : '') +
       '</div>';
   });
   $('list').innerHTML = html;
@@ -392,7 +427,7 @@ function openForm(editing){
   const locVal = editing ? (editing.location || '') : '';
   for(let i=0;i<locSel.options.length;i++){ if(locSel.options[i].value===locVal){ locSel.selectedIndex=i; break; } }
   if(!locVal) locSel.selectedIndex = 0;
-  $('f_address').value   = editing ? (editing.address  || '') : '';
+  $('f_sublocation').value = editing ? (editing.sublocation || '') : '';
   $('f_receiving').value = editing ? (editing.receiving|| '') : '';
   $('f_details').value   = editing ? (editing.details  || '') : '';
   show('formOverlay');
@@ -416,7 +451,7 @@ async function saveCustomer(){
     nick:      $('f_nick').value.trim(),
     phone:     $('f_phone').value.trim(),
     location:  $('f_location').value,
-    address:   $('f_address').value.trim(),
+    sublocation: $('f_sublocation').value.trim(),
     receiving: $('f_receiving').value.trim(),
     details:   $('f_details').value.trim(),
     updatedAt: Date.now()
@@ -437,6 +472,51 @@ function detRow(k,v){
   return '<div class="detail-row"><div class="k">' + k + '</div><div class="v">' + (escapeHtml(v)||'&mdash;') + '</div></div>';
 }
 
+function detPhoneRow(phone){
+  const val = phone ? escapeHtml(phone) : '&mdash;';
+  const btn = phone ?
+    '<button class="copyBtn" data-action="copy-phone" data-phone="' + escapeHtml(phone) + '" title="Copy number">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>' +
+    '</button>' : '';
+  return '<div class="detail-row"><div class="k">Phone</div><div class="v phoneVal">' + val + btn + '</div></div>';
+}
+
+let toastTimer = null;
+function showToast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+function copyPhone(phone, btnEl){
+  if(!phone) return;
+  const done = () => {
+    showToast('Number copied: ' + phone);
+    if(btnEl){
+      btnEl.classList.add('copied');
+      setTimeout(() => btnEl.classList.remove('copied'), 1000);
+    }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(phone).then(done).catch(() => fallbackCopy(phone, done));
+  }else{
+    fallbackCopy(phone, done);
+  }
+}
+
+function fallbackCopy(text, cb){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand('copy'); cb && cb(); }catch(e){}
+  document.body.removeChild(ta);
+}
+
 function openDetail(id){
   const c = customers.find(x => x.id === id);
   if(!c) return;
@@ -445,9 +525,9 @@ function openDetail(id){
   $('detailBody').innerHTML =
     detRow('Name', c.name) +
     detRow('Nicknames', c.nick) +
-    detRow('Phone', c.phone) +
+    detPhoneRow(c.phone) +
     detRow('Location', c.location) +
-    detRow('Address', c.address) +
+    detRow('Sub Location', c.sublocation) +
     detRow('Receiving Address', c.receiving) +
     detRow('Short Details', c.details) +
     '<div class="actions" style="margin-top:18px;">' +
@@ -503,6 +583,13 @@ $('btnSaveSetup').addEventListener('click', saveFirebaseConfig);
 
 // Delegation for card clicks + dynamic detail buttons
 document.addEventListener('click', function(e){
+  const copyBtn = e.target.closest('[data-action="copy-phone"]');
+  if(copyBtn){
+    e.stopPropagation();
+    copyPhone(copyBtn.dataset.phone, copyBtn);
+    return;
+  }
+
   const card = e.target.closest('.card[data-id]');
   if(card){ openDetail(card.dataset.id); return; }
 
