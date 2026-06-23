@@ -198,6 +198,14 @@
       <div class="field"><label>Sub Location <span style="text-transform:none;font-size:11px;">(galli/area, location ke andar)</span></label><input id="f_sublocation" type="text" placeholder="e.g. Lane 3, Near temple"></div>
       <div class="field"><label>Receiving Address</label><textarea id="f_receiving" placeholder="Address for delivery / receiving items"></textarea></div>
       <div class="field"><label>Short Details</label><textarea id="f_details" placeholder="Any other notes about this customer"></textarea></div>
+      <div class="field">
+        <label>GPS Location</label>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input id="f_gps" type="text" placeholder="Latitude, Longitude" readonly style="flex:1;background:var(--panel);color:var(--muted);cursor:default;">
+          <button type="button" id="btnIAmHere" style="white-space:nowrap;padding:12px 14px;border-radius:10px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">I AM HERE</button>
+        </div>
+        <div id="gpsStatus" style="font-size:11px;color:var(--muted);margin-top:5px;min-height:16px;"></div>
+      </div>
       <div class="actions">
         <button class="btn btn-cancel" id="btnCancelForm">Cancel</button>
         <button class="btn btn-save" id="btnSaveForm">Save</button>
@@ -430,6 +438,8 @@ function openForm(editing){
   $('f_sublocation').value = editing ? (editing.sublocation || '') : '';
   $('f_receiving').value = editing ? (editing.receiving|| '') : '';
   $('f_details').value   = editing ? (editing.details  || '') : '';
+  $('f_gps').value       = editing ? (editing.gps      || '') : '';
+  $('gpsStatus').textContent = '';
   show('formOverlay');
 }
 
@@ -454,6 +464,7 @@ async function saveCustomer(){
     sublocation: $('f_sublocation').value.trim(),
     receiving: $('f_receiving').value.trim(),
     details:   $('f_details').value.trim(),
+    gps:       $('f_gps').value.trim(),
     updatedAt: Date.now()
   };
   try{
@@ -522,6 +533,9 @@ function openDetail(id){
   if(!c) return;
   activeDetailId = id;
   $('detailName').textContent = c.name;
+  const mapBtn = c.gps
+    ? '<button class="btn" data-action="open-map" data-gps="' + escapeHtml(c.gps) + '" style="flex:1;padding:13px;border-radius:10px;border:1px solid #4caf50;background:transparent;color:#4caf50;font-size:15px;font-weight:600;cursor:pointer;">MAP</button>'
+    : '';
   $('detailBody').innerHTML =
     detRow('Name', c.name) +
     detRow('Nicknames', c.nick) +
@@ -530,8 +544,10 @@ function openDetail(id){
     detRow('Sub Location', c.sublocation) +
     detRow('Receiving Address', c.receiving) +
     detRow('Short Details', c.details) +
+    (c.gps ? detRow('GPS', c.gps) : '') +
     '<div class="actions" style="margin-top:18px;">' +
     '<button class="btn btn-cancel" data-action="close-detail">Close</button>' +
+    mapBtn +
     '<button class="btn btn-save" data-action="edit-detail" data-id="' + c.id + '">Edit</button>' +
     '</div>' +
     '<button class="delBtn" data-action="delete-detail" data-id="' + c.id + '">Delete Customer</button>';
@@ -565,6 +581,44 @@ async function saveFirebaseConfig(){
 }
 
 // ── All event listeners — no inline onclick anywhere ──
+$('btnIAmHere').addEventListener('click', function(){
+  const statusEl = $('gpsStatus');
+  const gpsInput = $('f_gps');
+  const btn = this;
+  if(!navigator.geolocation){
+    statusEl.textContent = 'GPS not supported on this device.';
+    statusEl.style.color = 'var(--danger)';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Locating...';
+  statusEl.textContent = 'Getting your location...';
+  statusEl.style.color = 'var(--muted)';
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      const lat = pos.coords.latitude.toFixed(7);
+      const lng = pos.coords.longitude.toFixed(7);
+      gpsInput.value = lat + ', ' + lng;
+      statusEl.textContent = 'Location captured (accuracy: ±' + Math.round(pos.coords.accuracy) + 'm)';
+      statusEl.style.color = '#4caf50';
+      btn.disabled = false;
+      btn.textContent = 'I AM HERE';
+    },
+    function(err){
+      const msgs = {
+        1: 'Location permission denied. Please allow location access.',
+        2: 'Location unavailable. Try again.',
+        3: 'Location request timed out. Try again.'
+      };
+      statusEl.textContent = msgs[err.code] || 'Failed to get location.';
+      statusEl.style.color = 'var(--danger)';
+      btn.disabled = false;
+      btn.textContent = 'I AM HERE';
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+});
+
 $('btnFab').addEventListener('click', () => openForm(null));
 $('btnCloseForm').addEventListener('click', closeForm);
 $('btnCancelForm').addEventListener('click', closeForm);
@@ -602,6 +656,17 @@ document.addEventListener('click', function(e){
     if(c) openForm(c);
   }
   else if(btn.dataset.action === 'delete-detail') deleteCustomer(btn.dataset.id);
+  else if(btn.dataset.action === 'open-map'){
+    const gps = btn.dataset.gps;
+    if(gps){
+      const parts = gps.split(',');
+      const lat = parts[0] && parts[0].trim();
+      const lng = parts[1] && parts[1].trim();
+      if(lat && lng){
+        window.open('https://www.google.com/maps?q=' + encodeURIComponent(lat) + ',' + encodeURIComponent(lng), '_blank');
+      }
+    }
+  }
 });
 
 // Pre-fill setup form
