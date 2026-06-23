@@ -593,37 +593,39 @@ $('btnIAmHere').addEventListener('click', function(){
   }
 
   btn.disabled = true;
-  btn.textContent = 'Locating...';
-  statusEl.textContent = 'Acquiring GPS signal — please stay still...';
+  btn.textContent = 'Acquiring...';
+  statusEl.textContent = 'Stay still — acquiring best GPS fix...';
   statusEl.style.color = 'var(--muted)';
 
-  let bestPosition = null;
-  let watchId = null;
-  let settled = false;
+  const WATCH_DURATION     = 20000; // watch for 20 seconds max
+  const GOOD_ENOUGH_METERS = 5;     // stop early if accuracy reaches ±5m
+  const MAX_BEST_SAMPLES   = 8;     // collect up to 8 best readings to average
 
-  // How long to keep watching for a better fix (ms)
-  const WATCH_DURATION = 8000;
-  // Stop early if accuracy is this good (metres)
-  const GOOD_ENOUGH_ACCURACY = 10;
+  let watchId    = null;
+  let settled    = false;
+  let bestSamples = []; // stores top readings sorted by accuracy
 
   function finish(){
     if(settled) return;
     settled = true;
     if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
 
-    if(!bestPosition){
-      statusEl.textContent = 'Could not get location. Make sure GPS is enabled and try again.';
+    if(bestSamples.length === 0){
+      statusEl.textContent = 'Could not get location. Enable GPS and try again outdoors.';
       statusEl.style.color = 'var(--danger)';
       btn.disabled = false;
       btn.textContent = 'I AM HERE';
       return;
     }
 
-    const lat = bestPosition.coords.latitude.toFixed(8);
-    const lng = bestPosition.coords.longitude.toFixed(8);
-    const acc = Math.round(bestPosition.coords.accuracy);
-    gpsInput.value = lat + ', ' + lng;
-    statusEl.textContent = 'Location captured — accuracy ±' + acc + ' m';
+    // Average the top readings (already sorted best-first, take up to 5)
+    const top = bestSamples.slice(0, Math.min(5, bestSamples.length));
+    const avgLat = top.reduce((s, p) => s + p.coords.latitude,  0) / top.length;
+    const avgLng = top.reduce((s, p) => s + p.coords.longitude, 0) / top.length;
+    const bestAcc = Math.round(top[0].coords.accuracy);
+
+    gpsInput.value = avgLat.toFixed(8) + ', ' + avgLng.toFixed(8);
+    statusEl.textContent = 'Captured — best accuracy ±' + bestAcc + ' m (' + top.length + ' samples averaged)';
     statusEl.style.color = '#4caf50';
     btn.disabled = false;
     btn.textContent = 'I AM HERE';
@@ -631,39 +633,38 @@ $('btnIAmHere').addEventListener('click', function(){
 
   watchId = navigator.geolocation.watchPosition(
     function(pos){
-      // Keep the fix with best (lowest) accuracy reading
-      if(!bestPosition || pos.coords.accuracy < bestPosition.coords.accuracy){
-        bestPosition = pos;
-        const acc = Math.round(pos.coords.accuracy);
-        statusEl.textContent = 'Signal found — accuracy ±' + acc + ' m, improving...';
-        statusEl.style.color = 'var(--muted)';
-        // If already accurate enough, stop early
-        if(acc <= GOOD_ENOUGH_ACCURACY){ finish(); }
-      }
+      // Insert into sorted list (best accuracy = lowest number = first)
+      bestSamples.push(pos);
+      bestSamples.sort((a, b) => a.coords.accuracy - b.coords.accuracy);
+      if(bestSamples.length > MAX_BEST_SAMPLES) bestSamples.pop();
+
+      const acc = Math.round(pos.coords.accuracy);
+      const best = Math.round(bestSamples[0].coords.accuracy);
+      statusEl.textContent = 'Locking in... current ±' + acc + ' m | best so far ±' + best + ' m';
+      statusEl.style.color = 'var(--muted)';
+
+      if(best <= GOOD_ENOUGH_METERS && bestSamples.length >= 3){ finish(); }
     },
     function(err){
+      if(settled) return;
       const msgs = {
-        1: 'Location permission denied. Please allow location access in your browser settings.',
-        2: 'GPS signal unavailable. Move to an open area and try again.',
-        3: 'GPS timed out. Move to an open area and try again.'
+        1: 'Location permission denied. Please allow location access in browser settings.',
+        2: 'GPS signal unavailable. Go outdoors and try again.',
+        3: 'GPS timed out. Go outdoors and try again.'
       };
-      if(!settled){
-        // If we already have a position, use it; otherwise show error
-        if(bestPosition){ finish(); }
-        else{
-          settled = true;
-          if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
-          statusEl.textContent = msgs[err.code] || 'Failed to get location.';
-          statusEl.style.color = 'var(--danger)';
-          btn.disabled = false;
-          btn.textContent = 'I AM HERE';
-        }
+      if(bestSamples.length > 0){ finish(); }
+      else{
+        settled = true;
+        if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+        statusEl.textContent = msgs[err.code] || 'Failed to get location.';
+        statusEl.style.color = 'var(--danger)';
+        btn.disabled = false;
+        btn.textContent = 'I AM HERE';
       }
     },
-    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
   );
 
-  // After WATCH_DURATION, lock in the best position we have
   setTimeout(finish, WATCH_DURATION);
 });
 
